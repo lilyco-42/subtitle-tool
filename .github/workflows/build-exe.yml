@@ -1,0 +1,37 @@
+name: Build Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: pip install pyinstaller faster-whisper
+
+      - name: Download ffmpeg
+        run: |
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath .
+          $ffmpegDir = Get-ChildItem -Directory -Filter "ffmpeg-*" | Select-Object -First 1
+          Copy-Item "$ffmpegDir\bin\ffmpeg.exe" .
+
+      - name: Build EXE
+        run: |
+          pyinstaller --onefile --name subtitle_tool --add-binary "ffmpeg.exe;." subtitle_tool.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: subtitle_tool-windows
+          path: dist/subtitle_tool.exe

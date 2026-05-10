@@ -1,0 +1,17 @@
+[project]
+name = "subtitle-tool"
+version = "1.0.0"
+description = "跨平台视频字幕工具 — faster-whisper 转录 + FFmpeg 嵌入"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["faster-whisper"]
+
+[project.scripts]
+subtitle-tool = "subtitle_tool:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["subtitle_tool"]

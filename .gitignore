@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+*.srt
+*.spec
+.env
+*_subtitled.*
