@@ -72,7 +72,7 @@ python subtitle_tool.py video.mp4 --model ~/.cache/huggingface/hub/models--Systr
 
 ## 直接下载 EXE
 
-如果不想装 Python，可以从 [Releases](https://github.com/your/repo/releases) 下载打包好的 `subtitle_tool.exe`，解压后双击即可使用（已将 ffmpeg 打包在内）。
+如果不想装 Python，可以从 [Releases](https://github.com/lilyco-42/subtitle-tool/releases) 下载打包好的 `subtitle_tool.exe`，解压后双击即可使用（已将 ffmpeg 打包在内）。
 
 ## License
 
