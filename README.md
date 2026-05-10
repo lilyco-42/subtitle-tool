@@ -49,6 +49,15 @@ python subtitle_tool.py video.mp4 --model medium
 python subtitle_tool.py video.mp4 --model ~/.cache/huggingface/hub/models--Systran--faster-whisper-small
 ```
 
+## 软字幕 vs 硬字幕
+
+| 模式 | 特点 | 适用场景 |
+|------|------|----------|
+| `soft` | 字幕作为独立轨道存入文件，播放器可开关 | VLC、PotPlayer、mpv 等播放器 |
+| `hard` | 字幕直接烧录到画面，无法关闭 | 剪映/CapCut 等剪辑软件、浏览器、手机自带播放器 |
+
+**注意**：剪映、CapCut、Premiere 等剪辑软件通常**不支持读取 MP4 的软字幕轨道**。如果需要导入剪辑软件，请使用 `--mode hard` 烧录字幕，或直接把生成的 `.srt` 文件拖入时间线。
+
 ## 模型选择
 
 | 模型 | 大小 | 速度 | 精度 |
