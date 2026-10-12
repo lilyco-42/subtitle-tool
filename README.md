@@ -77,3 +77,16 @@ python subtitle_tool.py video.mp4 --model ~/.cache/huggingface/hub/models--Systr
 ## License
 
 MIT
+
+## 桌面封装准备与回归
+
+现有 CLI 的批量与嵌入行为由 `Subtitle CLI regression` 在 GitHub Actions 的 Windows / Linux 验证。
+`--help` 不加载模型；使用 `--srt` 时不需要安装或下载语音识别模型。`--batch` 不再进入交互提示，
+排除已经生成的 `_subtitled` 视频；任意文件失败会以非零状态退出，不显示“全部完成”。
+`--output` 只允许单文件处理，不能覆盖原视频或字幕。软字幕根据**输出**容器选择编码，
+明确使用新字幕并保留音视频；支持 MP4 / MOV / MKV，其他输入的默认软字幕输出使用 MKV。
+硬字幕使用临时字幕副本，支持含空格、中文及引号的原字幕路径。
+
+这些是原 CLI 的前置修补，**不是已发布的 GUI 产品**。后续桌面版仍需要完成字幕编辑／预览、
+原引擎转录、批量导出、取消，以及模型、FFmpeg 和 WebView 的完整打包许可与安装验收。
+所有产品构建与测试只在 GitHub Actions；本机不编译、冻结或运行产品测试。
