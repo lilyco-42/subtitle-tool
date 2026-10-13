@@ -42,6 +42,7 @@ jobs:
           mkdir -p evidence
           ffmpeg -version > evidence/ffmpeg-version.txt
           ffprobe -version > evidence/ffprobe-version.txt
+          python -m pip install pillow==11.3.0
           python -m unittest discover -s tests -v 2>&1 | tee evidence/tests.txt
       - name: Keep exact source and actual media evidence
         if: always()

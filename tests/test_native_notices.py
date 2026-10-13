@@ -24,6 +24,31 @@ def source_archive(name, data):
 
 
 class OriginalNoticeTests(unittest.TestCase):
+    def test_transient_source_dns_failure_retries_without_changing_bytes(self):
+        response = unittest.mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b'original pinned source bytes'
+        with patch.object(attribution.urllib.request, 'urlopen', side_effect=[
+                attribution.urllib.error.URLError('own DNS fixture'), response]) as fetcher, \
+                patch.object(attribution.time, 'sleep') as sleep:
+            self.assertEqual(b'original pinned source bytes', attribution.fetch('https://example.invalid/source'))
+            self.assertEqual(2, fetcher.call_count)
+            sleep.assert_called_once_with(2)
+
+    def test_source_access_denial_is_not_retried(self):
+        denial = attribution.urllib.error.HTTPError('https://example.invalid/source', 403, 'own fixture', None, None)
+        with patch.object(attribution.urllib.request, 'urlopen', side_effect=denial) as fetcher, \
+                patch.object(attribution.time, 'sleep') as sleep, self.assertRaises(attribution.urllib.error.HTTPError):
+            attribution.fetch('https://example.invalid/source')
+        self.assertEqual(1, fetcher.call_count)
+        sleep.assert_not_called()
+
+    def test_source_retry_budget_is_bounded(self):
+        with patch.object(attribution.urllib.request, 'urlopen', side_effect=attribution.urllib.error.URLError('own fixture')) as fetcher, \
+                patch.object(attribution.time, 'sleep') as sleep, self.assertRaises(attribution.urllib.error.URLError):
+            attribution.fetch('https://example.invalid/source')
+        self.assertEqual(3, fetcher.call_count)
+        self.assertEqual([2, 4], [call.args[0] for call in sleep.call_args_list])
+
     def test_pinned_core_metadata_is_used_without_top_level_export(self):
         record = {'version': (62, 1, 0), 'configuration': b'own fixture', 'license': b'own fixture'}
         actual = {name: record for name in ('libavutil', 'libavcodec', 'libavformat',

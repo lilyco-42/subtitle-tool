@@ -18,6 +18,8 @@ import subprocess
 import sys
 import sysconfig
 import tarfile
+import time
+import urllib.error
 import urllib.request
 
 if os.environ.get('GITHUB_ACTIONS') != 'true' or os.environ.get('GITHUB_REPOSITORY') != 'lilyco-42/subtitle-tool':
@@ -37,11 +39,20 @@ def fetch(url, limit=256 * 1024 * 1024):
     if not url.startswith('https://'):
         raise ValueError('Source acquisition requires HTTPS')
     request = urllib.request.Request(url, headers={'User-Agent': 'Lain42-source-attribution'})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        data = response.read(limit + 1)
-    if len(data) > limit:
-        raise ValueError('Source exceeds reviewed download budget')
-    return data
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                data = response.read(limit + 1)
+            if len(data) > limit:
+                raise ValueError('Source exceeds reviewed download budget')
+            return data
+        except urllib.error.HTTPError as error:
+            if error.code not in {429, 500, 502, 503, 504} or attempt == 2:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 2:
+                raise
+        time.sleep(2 ** (attempt + 1))
 
 
 def original_notices(archive):

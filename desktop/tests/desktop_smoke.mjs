@@ -33,6 +33,11 @@ try {
     } catch { await new Promise(resolve => setTimeout(resolve, 500)); }
   }
   assert(browser && receipt, 'Actual WebView2 startup failed: ' + output);
+  for(let i=0;i<200;i++) {
+    try {receipt=JSON.parse(await fs.readFile(receiptFile,'utf8'));if(receipt.native_icon_applied===true)break;} catch {}
+    await new Promise(r=>setTimeout(r,100));
+  }
+  assert.equal(receipt.native_icon_applied,true,'actual native window must use the packaged Lyco icon');
   const page = browser.contexts()[0].pages()[0];
   assert(page, 'Missing native page');
   const errors = [];
@@ -77,7 +82,7 @@ try {
   await assert.rejects(fs.access(receipt.workspace_root), 'Private workspace survived normal close');
   await assert.rejects(fetch(receipt.url), 'Server survived normal close');
   await fs.writeFile('evidence/windows-native.json', JSON.stringify({ commit: process.env.GITHUB_SHA,
-    native_webview2: true, real_video_preview: true, edited_real_vtt: true,
+    native_webview2: true, native_icon_applied: true, real_video_preview: true, edited_real_vtt: true,
     original_frozen_cli_export: true, real_zip_contents: true, normal_close: true,
     workspace_removed: true, port_closed: true, pageErrors: errors,
     media_source: 'CI host, not bundled', distributable: false }, null, 2));
