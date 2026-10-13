@@ -38,7 +38,11 @@ with tempfile.TemporaryDirectory(prefix='lain42-subtitle-install-') as temporary
     subprocess.run([sys.executable, 'tests/bundle_smoke.py', str(installed)], check=True, timeout=600)
     receipt = json.loads(Path('evidence/frozen-smoke.json').read_text(encoding='utf-8'))
     assert Path(receipt['app_path']).resolve() == installed.resolve()
-    assert Path(receipt['original_engine_path']).is_relative_to(target)
+    # Windows resolves RUNNER~1 temporary roots to their long path spelling.
+    # Match the exact installed worker after canonicalizing both paths, rather
+    # than comparing a resolved receipt to an unresolved lexical prefix.
+    expected_engine = target / '_internal/bin/subtitle-engine/subtitle-engine.exe'
+    assert Path(receipt['original_engine_path']).resolve() == expected_engine.resolve(), receipt
     for flag in ('local_model_cpu_asr', 'edited_soft_track', 'actual_hard_pixels',
                  'real_zip_contents', 'cancelled_actual_running_inference',
                  'clear_private_files', 'no_host_media_path'):

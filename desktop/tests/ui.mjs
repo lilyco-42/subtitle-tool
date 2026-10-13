@@ -65,11 +65,28 @@ try {
       await page.getByRole('button', { name: 'second.mp4', exact: true }).click();
       await page.getByText('按顺序处理这一组全部视频', { exact: true }).click();
       await page.getByLabel('语音语言', { exact: true }).selectOption('en');
+      // Reproduce the real formal-main race: history is recorded before the
+      // completed job's caption GET refreshes the editor. Delay that actual
+      // response; do not replace the original ASR or fabricate its result.
+      await page.route('**/api/workspaces/*/captions/1', async route => {
+        const response = await route.fetch();
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await route.fulfill({ response });
+      });
       page.once('dialog', dialog => dialog.accept());
       await page.getByRole('button', { name: '生成字幕', exact: true }).click();
       await page.waitForFunction(() => document.querySelectorAll('.subtitle-history article').length === 3,
                                  null, { timeout: 120000 });
+      await page.waitForFunction(() => !document.querySelector('#subtitle-document').disabled,
+                                 null, { timeout: 120000 });
       assert.match((await editor.inputValue()).toLowerCase(), /subtitle/);
+      const stored = await page.getByRole('link', { name: '下载当前 SRT', exact: true }).evaluate(async link => {
+        const response = await fetch(link.getAttribute('href'));
+        if (!response.ok) throw Error('Stored generated SRT could not be read');
+        return response.text();
+      });
+      assert.equal((await editor.inputValue()).replaceAll('\r\n', '\n'), stored.replaceAll('\r\n', '\n'));
+      assert.doesNotMatch(stored, /NEW CAPTION|EDITED IN GUI/);
     }
     assert.deepEqual(errors, []);
     await page.screenshot({ path: path.join(root, `workbench-${width}.png`), fullPage: true });
