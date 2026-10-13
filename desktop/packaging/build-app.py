@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import importlib.util
 
 if os.environ.get('GITHUB_ACTIONS') != 'true':
     raise SystemExit('Build only in GitHub Actions')
@@ -34,6 +35,10 @@ for module in ('faster_whisper', 'ctranslate2', 'av', 'onnxruntime', 'tokenizers
 for module in ('torch', 'tensorflow', 'PyQt6', 'PySide6', 'webview', 'fastapi', 'uvicorn'):
     engine += ['--exclude-module', module]
 subprocess.run(engine + [str(source)], check=True)
+cpu_module = importlib.util.spec_from_file_location('cpu_payload', root / 'packaging/cpu-payload.py')
+cpu_payload = importlib.util.module_from_spec(cpu_module)
+cpu_module.loader.exec_module(cpu_payload)
+cpu_receipt = cpu_payload.trim_optional_gpu(root / 'engine-dist/subtitle-engine')
 # The original binary retains its independent tree. Its own fixed media path is
 # copied in full, including any required DLLs, docs and upstream full license.
 shutil.copytree(media / 'ffmpeg', root / 'engine-dist/subtitle-engine/_internal/media/ffmpeg', symlinks=True)
@@ -91,6 +96,7 @@ receipt = {'commit': os.environ['GITHUB_SHA'], 'runner': os.environ['RUNNER_OS']
            'independent_engine_binary': True, 'source_fallback_allowed': False,
            'media_source': 'Exact reviewed standalone FFmpeg with complete corresponding source archives',
            'media_acquisition': acquisition, 'complete_media_sources_in_app': True,
+           'cpu_payload': cpu_receipt,
            'distributable': False}
 Path('evidence').mkdir(exist_ok=True)
 Path('evidence/frozen-build.json').write_text(json.dumps(receipt, indent=2), encoding='utf-8')

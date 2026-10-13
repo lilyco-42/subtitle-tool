@@ -2,6 +2,23 @@
 
 This application wraps the original `subtitle_tool.py` from this repository. It does not implement a second Whisper or FFmpeg engine.
 
+`packaging/native-attribution.py` preserves actual installed distribution notices,
+original frontend notices, runtime notices and the application's current Git
+source archive. PyAV 16.0.1 is pinned to upstream `PyAV-Org/PyAV` commit
+`7687256d87f22f78cb75bb4aba94dc6e504c9983`; its `scripts/ffmpeg-8.0.json`
+selects pyav-ffmpeg release `8.0-2`, builder commit
+`fab22bcb12748a05f86683ac632fdb96994d970e`. The builder's literal source SHA
+table is parsed without executing upstream code; full dependency archives and
+original notices are preserved separately from the standalone FFmpeg CLI sources.
+The compiled wheel's actual FFmpeg version/configuration/license and frozen
+native-file hashes are recorded. Unresolved runtime attribution is a release
+blocker, not evidence of a compatible license.
+
+The fixed PyAV media helper has no declared source license. Its code is not
+redistributed in the application; the audit preserves its factual source URL
+and digest and requires an independently licensed rebuild recipe. Preserving
+metadata does not clear that remaining release requirement.
+
 The per-user NSIS installer generator is adapted from `lilyco-42/lilyco`, commit
 `a308ad03671a2b8d415b85ff2d7e2e7bfc42796b`, `apps/vision-studio/packaging/windows-installer.py`.
 Its MIT notice remains in `SHARED-SOURCE-LICENSE`. The subtitle-specific installed
@@ -33,3 +50,5 @@ This media component does not prove the frozen application's complete distributi
 or its installed/uninstalled behavior; these remain separate release gates.
 
 Current code is a workbench implementation. A release additionally requires a pinned local Whisper model and its license/file manifest, a reviewed FFmpeg build with full notices and corresponding source, original CLI binary freezing, WebView2 SDK notices, real ASR and video/UI tests, native-window cleanup and installed/uninstalled tests. CI-only FFmpeg used by regressions is not a distributable bundle. No claimed price, sales or complete product acceptance follows from source or UI build alone.
+
+Actual frozen runtime files are additionally hash-matched to the exact CI CPython installation and its stdlib extension directory, excluding site-packages. Installed original license bytes are retained when present. This source evidence does not confer permission on transitive or Microsoft system runtime DLLs; permission review remains separate and explicit. Mismatched bytes are never matched by filename alone.
