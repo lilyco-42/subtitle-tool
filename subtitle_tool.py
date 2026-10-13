@@ -83,12 +83,7 @@ def check_deps(require_asr=True):
 # ─────────────────────────────────────────────
 #  faster-whisper 生成字幕
 #
-#  模型下载体积（比 openai-whisper 小 ~4 倍）：
-#    tiny   ~  39 MB   最快
-#    base   ~  74 MB   较快
-#    small  ~ 244 MB   均衡  ← 默认
-#    medium ~ 769 MB   精准
-#    large  ~1550 MB   最准
+#  下载体积取决于模型仓库、转换精度与版本，不套用原版权重大小。
 # ─────────────────────────────────────────────
 def generate_srt(video_path: Path, model: str, language: str,
                  output_path: Path | None = None, device: str = "auto",
@@ -324,8 +319,8 @@ def interactive_mode():
         error(f"路径不存在：{p}")
         sys.exit(1)
 
-    print("\nWhisper 模型（faster-whisper，下载体积约为原版 1/4）：")
-    print("  tiny=39MB最快  base=74MB  small=244MB均衡  medium=769MB  large=1.5GB最准")
+    print("\nWhisper 模型（faster-whisper 转换版）：")
+    print("  tiny / base / small / medium / large，下载体积以具体模型版本为准")
     model = input("选择模型（直接回车=small）：").strip() or "small"
 
     print("\n字幕模式：soft（可开关）/ hard（烧录到画面）")

@@ -60,13 +60,13 @@ python subtitle_tool.py video.mp4 --model ~/.cache/huggingface/hub/models--Systr
 
 ## 模型选择
 
-| 模型 | 大小 | 速度 | 精度 |
-|------|------|------|------|
-| tiny | ~39 MB | 最快 | 一般 |
-| base | ~74 MB | 较快 | 尚可 |
-| **small** | **~244 MB** | **均衡** | **推荐** |
-| medium | ~769 MB | 较慢 | 精准 |
-| large | ~1.5 GB | 最慢 | 最准 |
+CLI 支持 tiny / base / small / medium / large 或本地转换模型。
+大小取决于具体模型仓库、精度与版本，不能直接套用 OpenAI 原版权重的体积。
+本次 Actions 实际取得的固定 Tiny 版本五个模型文件与完整许可合计 78,206,673 字节；
+这不是完整桌面应用体积，也不是准确率或速度保证。其他模型尚未在桌面包验证。
+
+faster-whisper 1.2.1 与 PyAV 16.0.1 固定配套：真实 ASR 发现新 PyAV 不再接受
+`av.open(metadata_errors=...)`，不能仅通过前端构建或已有字幕测试判断转录可用。
 
 首次使用会自动下载模型到 `~/.cache/huggingface/`。
 
