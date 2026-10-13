@@ -50,3 +50,5 @@ This media component does not prove the frozen application's complete distributi
 or its installed/uninstalled behavior; these remain separate release gates.
 
 Current code is a workbench implementation. A release additionally requires a pinned local Whisper model and its license/file manifest, a reviewed FFmpeg build with full notices and corresponding source, original CLI binary freezing, WebView2 SDK notices, real ASR and video/UI tests, native-window cleanup and installed/uninstalled tests. CI-only FFmpeg used by regressions is not a distributable bundle. No claimed price, sales or complete product acceptance follows from source or UI build alone.
+
+Actual frozen runtime files are additionally hash-matched to the exact CI CPython installation and its stdlib extension directory, excluding site-packages. Installed original license bytes are retained when present. This source evidence does not confer permission on transitive or Microsoft system runtime DLLs; permission review remains separate and explicit. Mismatched bytes are never matched by filename alone.

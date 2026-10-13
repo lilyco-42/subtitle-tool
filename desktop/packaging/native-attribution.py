@@ -6,6 +6,7 @@ legal approval and must not be used to publish while unresolved items remain.
 import ast
 import hashlib
 import importlib.metadata
+import importlib.util
 import io
 import json
 import os
@@ -15,6 +16,7 @@ import shutil
 import ssl
 import subprocess
 import sys
+import sysconfig
 import tarfile
 import urllib.request
 
@@ -207,13 +209,33 @@ def dependency_notices():
     return records, binaries
 
 
+def python_runtime_evidence():
+    spec = importlib.util.spec_from_file_location('runtime_sources', Path(__file__).with_name('runtime-sources.py'))
+    runtime = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runtime)
+    installation = Path(sys.base_prefix).resolve()
+    extension = sysconfig.get_config_var('DESTSHARED')
+    index = runtime.installed_runtime_index(installation, extension)
+    names = ('LICENSE', 'LICENSE.txt')
+    notices = runtime.installation_notices(installation) if any((installation / name).is_file() for name in names) else {}
+    folder = OUT / 'cpython-installation'
+    folder.mkdir()
+    for name, record in notices.items():
+        (folder / name).write_bytes((installation / name).read_bytes())
+    evidence = {'version': '.'.join(str(v) for v in sys.version_info[:3]),
+                'original_notices': notices, 'native_source_hashes': len(index),
+                'notice_status': 'Original installed notices retained' if notices else 'Installation notice unavailable; upstream notices do not cover every dependency',
+                'redistribution_permission_inferred': False}
+    return evidence, index
+
 def main():
     if not (ROOT / '_internal/bin/subtitle-engine').is_dir():
         raise ValueError('Need actual original frozen worker before auditing')
     OUT.mkdir(exist_ok=True)
     notices, binary_sources = dependency_notices()
     pyav = pyav_sources()
-    native, unresolved = [], []
+    native, unresolved, runtime_permission_pending = [], [], []
+    python_runtime, runtime_index = python_runtime_evidence()
     sdk = json.loads(Path('packaging/webview2-sdk.json').read_text(encoding='utf-8'))
     sdk_hashes = {record['sha256'] for record in sdk['files']}
     for file in ROOT.rglob('*'):
@@ -222,8 +244,11 @@ def main():
         digest = sha(file.read_bytes())
         record = {'path': file.relative_to(ROOT).as_posix(), 'sha256': digest, 'size': file.stat().st_size,
                   'installed_distribution_matches': binary_sources.get(digest, [])}
+        record['cpython_installation_matches'] = runtime_index.get(digest, [])
         if digest in sdk_hashes:
             record['sdk'] = {'name': sdk['name'], 'version': sdk['version'], 'original_notice': 'MICROSOFT-WEBVIEW2-LICENSE.txt'}
+        elif record['cpython_installation_matches']:
+            runtime_permission_pending.append(record['path'])
         elif not record['installed_distribution_matches']:
             # Do not label CPython's dependent runtime DLLs, system ELF copies
             # or repaired media libraries licensed merely because they load.
@@ -234,6 +259,8 @@ def main():
     report = {'commit': os.environ['GITHUB_SHA'], 'dependency_notices': notices,
               'pyav_media_source_archive_count': len(pyav['dependency_sources']), 'native_files': native,
               'unresolved_native_runtime_files': unresolved, 'redistribution_audit_complete': False,
+              'actual_cpython_installation': python_runtime,
+              'runtime_permission_review_pending': runtime_permission_pending,
               'source_archive_sha256': sha((OUT / 'application-source.tar.gz').read_bytes()),
               'remaining_gate': 'Independent verification of all runtime notices/provenance; no public release yet'}
     (OUT / 'native-attribution.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
