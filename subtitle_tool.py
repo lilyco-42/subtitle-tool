@@ -41,11 +41,11 @@ CYAN   = "\033[96m"
 RESET  = "\033[0m"
 BOLD   = "\033[1m"
 
-def info(msg):  print(f"{CYAN}[INFO]{RESET}  {msg}")
-def ok(msg):    print(f"{GREEN}[OK]{RESET}    {msg}")
-def warn(msg):  print(f"{YELLOW}[WARN]{RESET}  {msg}")
-def error(msg): print(f"{RED}[ERROR]{RESET} {msg}")
-def title(msg): print(f"\n{BOLD}{msg}{RESET}\n{'─'*50}")
+def info(msg):  print(f"{CYAN}[INFO]{RESET}  {msg}", flush=True)
+def ok(msg):    print(f"{GREEN}[OK]{RESET}    {msg}", flush=True)
+def warn(msg):  print(f"{YELLOW}[WARN]{RESET}  {msg}", flush=True)
+def error(msg): print(f"{RED}[ERROR]{RESET} {msg}", flush=True)
+def title(msg): print(f"\n{BOLD}{msg}{RESET}\n{'─'*50}", flush=True)
 
 
 # ─────────────────────────────────────────────
@@ -111,7 +111,7 @@ def generate_srt(video_path: Path, model: str, language: str,
     if srt_path.resolve() == video_path.resolve():
         raise ValueError("字幕输出不能覆盖输入视频")
     seg_list  = []
-    with tempfile.TemporaryDirectory(prefix="subtitle-audio-") as directory:
+    with tempfile.TemporaryDirectory(prefix="subtitle-audio-", dir=srt_path.resolve().parent) as directory:
         media = video_path
         if local_only:
             # PyAV 的自动格式识别也可能识别播放列表。先由受协议白名单
@@ -227,7 +227,7 @@ def embed_subtitle(
 
     # 固定滤镜内的文件名，避免 Windows 盘符、引号、冒号的多层转义。
     # 输入和输出仍使用绝对路径，临时目录只持有本次字幕副本。
-    with tempfile.TemporaryDirectory(prefix="subtitle-filter-") as directory:
+    with tempfile.TemporaryDirectory(prefix="subtitle-filter-", dir=out.parent) as directory:
         if mode == "hard":
             shutil.copyfile(srt_path, Path(directory) / "subtitle.srt")
         ret = subprocess.run(cmd, cwd=directory, stderr=subprocess.PIPE,
