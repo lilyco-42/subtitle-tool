@@ -49,7 +49,7 @@ export function SubtitleWorkspace() {
           <Button disabled={state.busy || !videos.length} onClick={() => void state.open(videos, subtitle)}>{state.busy ? "正在加载…" : "打开工作区"}</Button>
         </CardContent></Card> : <>
           <Card><CardHeader><CardTitle>视频与字幕预览</CardTitle></CardHeader><CardContent>
-            <video ref={video} key={`${state.workspace.id}-${state.index}`} controls preload="metadata" className="subtitle-video" onError={() => setVideoError(true)}>
+            <video ref={video} aria-label="当前视频预览" key={`${state.workspace.id}-${state.index}`} controls preload="metadata" className="subtitle-video" onError={() => setVideoError(true)}>
               <source src={`/api/workspaces/${state.workspace.id}/videos/${state.index}`} onError={() => setVideoError(true)}/>
               <track key={state.revision} src={`${state.captionBase}/vtt?r=${state.revision}`} kind="subtitles" srcLang={language === "auto" ? "zh" : language} label="校对字幕" default/>
             </video><small>预览使用已保存的字幕。播放器字幕按钮可开关显示。</small>
@@ -63,7 +63,7 @@ export function SubtitleWorkspace() {
         </>}
       </section>
       <aside className="subtitle-controls"><Card><CardHeader><CardTitle>生成字幕</CardTitle></CardHeader><CardContent className="subtitle-stack">
-        <label>语音语言<select value={language} onChange={e => setLanguage(e.target.value)} disabled={state.busy}>{[["auto", "自动识别"], ["zh", "中文"], ["en", "英语"], ["ja", "日语"], ["ko", "韩语"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>语音语言<select aria-label="语音语言" value={language} onChange={e => setLanguage(e.target.value)} disabled={state.busy}>{[["auto", "自动识别"], ["zh", "中文"], ["en", "英语"], ["ja", "日语"], ["ko", "韩语"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <small>CPU 本地转录。字幕可能有识别错误，导出前请校对。</small>
         {state.capabilities && !state.capabilities.model && <p role="status" className="subtitle-warning">本地模型尚未打包，可先导入已有 SRT。</p>}
         <Button variant="secondary" disabled={!state.workspace || state.busy || !state.capabilities?.model || !state.capabilities.engine} onClick={() => void state.run("transcribe", options, all)}><Captions/> 生成字幕</Button>
@@ -72,7 +72,7 @@ export function SubtitleWorkspace() {
           <label>字幕方式<select aria-label="字幕方式" value={mode} onChange={e => setMode(e.target.value as "soft" | "hard")} disabled={state.busy}><option value="hard">烧录字幕 · 画面内显示</option><option value="soft">软字幕 · 播放器可开关</option></select></label>
           <small>{mode === "hard" ? "重新编码视频，适合手机播放和剪辑；字幕无法关闭。" : "保持音视频编码，播放器需支持字幕轨道。剪辑软件可能不读取软字幕。"}</small>
           <label>输出容器<select aria-label="输出容器" value={container} onChange={e => setContainer(e.target.value)} disabled={state.busy}><option value="mp4">MP4</option><option value="mkv">MKV</option></select></label>
-          {mode === "hard" && <><label>字幕字体<select value={font} onChange={e => setFont(e.target.value)} disabled={state.busy}><option>Arial</option><option>Microsoft YaHei</option><option>DejaVu Sans</option></select></label><label>字号<input type="number" min={8} max={96} value={fontSize} onChange={e => setFontSize(Number(e.target.value))} disabled={state.busy}/></label><small>字体须已安装；缺字或回退需要在导出视频中核对。</small></>}
+          {mode === "hard" && <><label>字幕字体<select aria-label="字幕字体" value={font} onChange={e => setFont(e.target.value)} disabled={state.busy}><option>Arial</option><option>Microsoft YaHei</option><option>DejaVu Sans</option></select></label><label>字号<input aria-label="字幕字号" type="number" min={8} max={96} value={fontSize} onChange={e => setFontSize(Number(e.target.value))} disabled={state.busy}/></label><small>字体须已安装；缺字或回退需要在导出视频中核对。</small></>}
           <label className="subtitle-check"><input type="checkbox" checked={all} onChange={e => setAll(e.target.checked)} disabled={state.busy}/> 按顺序处理这一组全部视频</label>
           <Button disabled={!state.workspace || !state.document.count || state.busy || state.dirty || !state.capabilities?.engine} onClick={() => void state.run(mode, options, all)}><Play/> 导出视频</Button>
           {state.workspace && state.document.count > 0 && <a href={`${state.captionBase}/srt`} download className="subtitle-download"><Download size={16}/> 下载当前 SRT</a>}
