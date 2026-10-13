@@ -51,6 +51,19 @@ def original_notices(archive):
                 data = source.extractfile(item).read()
                 notices[item.name] = {'sha256': sha(data), 'text': data.decode('utf-8', errors='replace')}
     if not notices:
+        # nv-codec-headers preserves complete MIT notices per header, rather
+        # than in a file called LICENSE. Retain the entire original header;
+        # a SPDX tag or a copyright line alone does not prove permission.
+        with tarfile.open(fileobj=io.BytesIO(archive), mode='r:*') as source:
+            for item in source:
+                if not item.isfile() or item.size > 512 * 1024 or Path(item.name).suffix != '.h':
+                    continue
+                data = source.extractfile(item).read()
+                if (b'Permission is hereby granted' in data and b'THE SOFTWARE IS PROVIDED' in data
+                        and b'Copyright' in data and b'OTHER DEALINGS IN THE SOFTWARE' in data):
+                    notices[item.name] = {'sha256': sha(data), 'text': data.decode('utf-8'),
+                                          'original_notice_location': 'Full MIT notice embedded in original header'}
+    if not notices:
         raise ValueError('Original source archive has no full notices')
     return notices
 
@@ -101,6 +114,7 @@ def pyav_sources():
         if not re.fullmatch('[A-Za-z0-9_-]+', name) or not re.fullmatch('[a-f0-9]{64}', digest):
             raise ValueError('Invalid fixed media dependency identity')
         source_url = source_url.replace('http://', 'https://', 1)
+        print('Preserving source and original notices: ' + name, flush=True)
         archive = fetch(source_url)
         if sha(archive) != digest:
             raise ValueError('Corresponding source differs: ' + name)
