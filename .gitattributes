@@ -2,3 +2,4 @@
 desktop/ui/src/components/ui/*.tsx -text
 desktop/ui/src/components/ui/LICENSE.md -text
 desktop/SHARED-SOURCE-LICENSE -text
+desktop/MICROSOFT-WEBVIEW2-LICENSE.txt -text

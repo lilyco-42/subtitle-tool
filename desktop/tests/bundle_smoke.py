@@ -137,7 +137,48 @@ with tempfile.TemporaryDirectory() as temporary:
             assert transcript['count'] > 0 and 'subtitle' in transcript['text'].lower(), transcript
             assert 'cpu' in asr['log'] and children_observed, 'No real bundled CPU process was observed'
             assert client.get('api/capabilities', headers={'Origin': 'https://other.invalid'}).status_code == 403
-            for item in (session, asr_session):
+            # A long own fixture gives time to observe real inference before cancellation.
+            long_video = root / 'long-own-speech.mp4'
+            subprocess.run(['ffmpeg', '-nostdin', '-y', '-stream_loop', '30', '-i', str(spoken),
+                            '-t', '240', '-c', 'copy', str(long_video)], check=True, capture_output=True)
+            cancel_session = upload(long_video)
+            unrelated = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])
+            try:
+                response = client.post('api/jobs', json={'session': cancel_session, 'index': 0,
+                                                       'mode': 'transcribe', 'language': 'en'})
+                response.raise_for_status()
+                cancel_id = response.json()['id']
+                deadline = time.monotonic() + 90
+                owned_pids = {}
+                while time.monotonic() < deadline:
+                    status = client.get('api/jobs/' + cancel_id).json()
+                    assert status['state'] in {'queued', 'running'}, status
+                    if status['state'] == 'running' and '开始转录' in status['log']:
+                        for child in psutil.Process(process.pid).children(recursive=True):
+                            try:
+                                if Path(child.exe()).resolve() == expected_engine.resolve():
+                                    owned_pids[child.pid] = child.create_time()
+                            except psutil.NoSuchProcess:
+                                pass
+                        if owned_pids:
+                            break
+                    time.sleep(.05)
+                assert owned_pids, 'Must observe actual running inference before cancelling'
+                cancelled = client.post('api/jobs/' + cancel_id + '/cancel')
+                cancelled.raise_for_status()
+                assert cancelled.json()['state'] == 'cancelled', cancelled.text
+                for pid, created in owned_pids.items():
+                    try:
+                        remaining = psutil.Process(pid)
+                        assert remaining.create_time() != created or not remaining.is_running(), 'Original worker survived cancellation'
+                    except psutil.NoSuchProcess:
+                        pass
+                assert unrelated.poll() is None, 'Cancelling the owned job killed an unrelated process'
+                assert client.get(f'api/jobs/{cancel_id}/files/export.zip').status_code == 404
+            finally:
+                unrelated.terminate()
+                unrelated.wait(timeout=15)
+            for item in (session, asr_session, cancel_session):
                 client.delete('api/workspaces/' + item).raise_for_status()
             assert client.get('api/jobs/' + soft['id']).status_code == 404
             assert not list(workspace_root.iterdir()), 'Workspace clear must remove actual private media'
@@ -150,6 +191,8 @@ with tempfile.TemporaryDirectory() as temporary:
                 'observed_original_engine_pids': sorted(children_observed), 'local_model_cpu_asr': True,
                 'own_synthetic_transcript': transcript['text'], 'edited_soft_track': True,
                 'actual_hard_pixels': True, 'real_zip_contents': True, 'clear_private_files': True,
+                'cancelled_actual_running_inference': True, 'cancelled_original_pids': sorted(owned_pids),
+                'unrelated_process_preserved': True, 'cancelled_exports_denied': True,
                 'processing_children_exited': True, 'cross_origin_denied': True,
                 'media_source': 'CI host, not bundled', 'distributable': False}), encoding='utf-8')
     finally:
