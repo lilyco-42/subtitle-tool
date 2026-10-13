@@ -194,6 +194,7 @@ with tempfile.TemporaryDirectory() as temporary:
             Path('evidence').mkdir(exist_ok=True)
             Path('evidence/frozen-smoke.json').write_text(json.dumps({
                 'commit': os.environ['GITHUB_SHA'], 'frozen_app': True, 'source_fallback_disabled': True,
+                'app_path': str(binary), 'original_engine_path': str(expected_engine),
                 'observed_original_engine_pids': sorted(children_observed), 'local_model_cpu_asr': True,
                 'own_synthetic_transcript': transcript['text'], 'edited_soft_track': True,
                 'actual_hard_pixels': True, 'real_zip_contents': True, 'clear_private_files': True,

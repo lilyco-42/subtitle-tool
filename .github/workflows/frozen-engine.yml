@@ -19,7 +19,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 55
+    timeout-minutes: 75
     env:
       HF_HUB_OFFLINE: '1'
       TRANSFORMERS_OFFLINE: '1'
@@ -88,6 +88,18 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: desktop
         run: node tests/desktop_smoke.mjs dist/Lain42-Subtitle-Studio/Lain42-Subtitle-Studio.exe
+      - name: Inventory all current package files before installation
+        working-directory: desktop
+        run: python packaging/file-manifest.py
+      - name: Windows installer compiler only in Actions
+        if: runner.os == 'Windows'
+        run: choco install nsis -y --no-progress
+      - name: Actual per-user EXE install, offline original processing and safe uninstall
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        run: |
+          python packaging/windows-installer.py
+          python tests/installer_smoke.py
       - name: Keep real frozen-engine evidence, not an unreviewed distributable
         if: always()
         uses: actions/upload-artifact@v4
@@ -98,5 +110,15 @@ jobs:
             desktop/build-engine/subtitle-engine/warn-subtitle-engine.txt
             desktop/build/Lain42-Subtitle-Studio/warn-Lain42-Subtitle-Studio.txt
           if-no-files-found: warn
-      # No binary publishing yet: complete media/native attribution, native window,
-      # running cancellation, installed processing and safe uninstall are still required.
+      - name: Preserve current candidate installer for audit, not publication
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: subtitle-candidate-installer-${{ github.sha }}
+          path: |
+            desktop/dist/*-setup.exe
+            desktop/dist/*.sha256
+            desktop/dist/Lain42-Subtitle-Studio/manifest.json
+          if-no-files-found: error
+      # No public release or paid delivery before all native attribution and
+      # corresponding source requirements are independently verified.

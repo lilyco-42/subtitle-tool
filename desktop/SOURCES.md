@@ -2,6 +2,12 @@
 
 This application wraps the original `subtitle_tool.py` from this repository. It does not implement a second Whisper or FFmpeg engine.
 
+The per-user NSIS installer generator is adapted from `lilyco-42/lilyco`, commit
+`a308ad03671a2b8d415b85ff2d7e2e7bfc42796b`, `apps/vision-studio/packaging/windows-installer.py`.
+Its MIT notice remains in `SHARED-SOURCE-LICENSE`. The subtitle-specific installed
+processing acceptance tests the original engine and offline ASR, plus exact
+file-list uninstall while retaining unrelated user files.
+
 React toolchain locks, the semantic theme, four unchanged shadcn primitives and Windows process-tree ownership originate from `lilyco-42/lilyco`, commit `e5f9fd66fa69be3e027697d7d2bffe8bc54e5ea0`, `apps/vision-studio/` (MIT). Full notice: `SHARED-SOURCE-LICENSE`. Registry URLs and exact primitive hashes: `ui/src/shadcn-sources.json`; original MIT notice: `ui/src/components/ui/LICENSE.md`.
 
 Subtitle documents are parsed with `srt` 3.5.3; API: https://srt.readthedocs.io/en/latest/api.html . Distribution must retain its MIT license and all resolved dependency notices.
