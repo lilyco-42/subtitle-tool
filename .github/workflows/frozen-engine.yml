@@ -90,7 +90,9 @@ jobs:
         run: node tests/desktop_smoke.mjs dist/Lain42-Subtitle-Studio/Lain42-Subtitle-Studio.exe
       - name: Inventory all current package files before installation
         working-directory: desktop
-        run: python packaging/file-manifest.py
+        run: |
+          python packaging/native-attribution.py
+          python packaging/file-manifest.py
       - name: Windows installer compiler only in Actions
         if: runner.os == 'Windows'
         run: choco install nsis -y --no-progress

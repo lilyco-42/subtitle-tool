@@ -2,6 +2,18 @@
 
 This application wraps the original `subtitle_tool.py` from this repository. It does not implement a second Whisper or FFmpeg engine.
 
+`packaging/native-attribution.py` preserves actual installed distribution notices,
+original frontend notices, runtime notices and the application's current Git
+source archive. PyAV 16.0.1 is pinned to upstream `PyAV-Org/PyAV` commit
+`7687256d87f22f78cb75bb4aba94dc6e504c9983`; its `scripts/ffmpeg-8.0.json`
+selects pyav-ffmpeg release `8.0-2`, builder commit
+`fab22bcb12748a05f86683ac632fdb96994d970e`. The builder's literal source SHA
+table is parsed without executing upstream code; full dependency archives and
+original notices are preserved separately from the standalone FFmpeg CLI sources.
+The compiled wheel's actual FFmpeg version/configuration/license and frozen
+native-file hashes are recorded. Unresolved runtime attribution is a release
+blocker, not evidence of a compatible license.
+
 The per-user NSIS installer generator is adapted from `lilyco-42/lilyco`, commit
 `a308ad03671a2b8d415b85ff2d7e2e7bfc42796b`, `apps/vision-studio/packaging/windows-installer.py`.
 Its MIT notice remains in `SHARED-SOURCE-LICENSE`. The subtitle-specific installed
