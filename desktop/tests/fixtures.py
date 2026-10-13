@@ -8,7 +8,7 @@ def fixtures(root):
     root.mkdir(exist_ok=True)
     video = root / 'original.mp4'
     subprocess.run(['ffmpeg', '-nostdin', '-y', '-f', 'lavfi', '-i', 'color=c=black:s=320x240:r=12:d=2',
-                    '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', '-c:v', 'mpeg4', '-c:a', 'aac',
+                    '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac',
                     '-shortest', str(video)], check=True, capture_output=True)
     subtitle = root / 'original.srt'
     subtitle.write_text('1\n00:00:00,100 --> 00:00:01,800\nNEW CAPTION\n\n', encoding='utf-8')
@@ -29,6 +29,6 @@ def speech(root):
         subprocess.run(['espeak', '-s', '135', '-w', str(wav), phrase], check=True)
     video = root / 'own-speech.mp4'
     subprocess.run(['ffmpeg', '-nostdin', '-y', '-f', 'lavfi', '-i', 'color=c=black:s=320x240:r=12',
-                    '-i', str(wav), '-c:v', 'mpeg4', '-c:a', 'aac', '-shortest', str(video)],
+                    '-i', str(wav), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', str(video)],
                     check=True, capture_output=True)
     return video
