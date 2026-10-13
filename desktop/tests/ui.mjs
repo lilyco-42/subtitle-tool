@@ -8,7 +8,9 @@ const root = path.resolve('evidence');
 fs.mkdirSync(root, { recursive: true });
 execFileSync('python', ['-c', 'from pathlib import Path; import sys; sys.path.insert(0,"tests"); from fixtures import fixtures,speech; fixtures(Path("evidence")); speech(Path("evidence"))']);
 fs.copyFileSync(path.join(root, 'own-speech.mp4'), path.join(root, 'second.mp4'));
-const browser = await chromium.launch();
+// Validate the installed product's supported H264/AAC browser path. Playwright's
+// unbranded Chromium here reports an empty canPlayType for these proprietary codecs.
+const browser = await chromium.launch({ channel: 'chrome' });
 const evidence = [];
 try {
   for (const width of [1440, 1028, 768, 390, 320]) {
@@ -83,5 +85,6 @@ try {
   }
 } finally {
   await browser.close();
-  fs.writeFileSync(path.join(root, 'browser.json'), JSON.stringify({ commit: process.env.GITHUB_SHA, layouts: evidence }, null, 2));
+  fs.writeFileSync(path.join(root, 'browser.json'), JSON.stringify({ commit: process.env.GITHUB_SHA,
+    browser: 'Google Chrome', browser_version: browser.version(), layouts: evidence }, null, 2));
 }

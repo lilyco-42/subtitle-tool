@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Captions, Download, Film, LockKeyhole, Moon, Play, Save, Square, Sun, Trash2, Upload } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
@@ -21,6 +21,7 @@ export function SubtitleWorkspace() {
   const [videoError, setVideoError] = useState(false);
   const current = state.workspace?.videos[state.index];
   const options = { language, container, font, font_size: fontSize };
+  useEffect(() => setVideoError(false), [state.workspace?.id, state.index]);
 
   function theme() {
     document.documentElement.classList.toggle("dark", !dark); setDark(!dark);
@@ -33,7 +34,7 @@ export function SubtitleWorkspace() {
       <aside className="subtitle-sidebar"><small>你的工作流</small><h2>把视频，变成能读懂的故事。</h2><ol className="subtitle-steps"><li>选择视频</li><li>生成或导入字幕</li><li>校对与预览</li><li>保存作品</li></ol>
         <p>原 faster-whisper 与 FFmpeg 引擎。文件不上传网站，不使用 AI 账户额度。</p>
         {state.capabilities && !state.capabilities.engine && <p role="status" className="subtitle-warning">当前引擎未打包，不是完整发行版。</p>}
-        {state.workspace && <><h3>当前视频</h3><nav aria-label="批量视频">{state.workspace.videos.map(item => <Button key={item.index} variant={state.index === item.index ? "secondary" : "ghost"} onClick={() => { setVideoError(false); void state.select(item.index); }} disabled={state.busy} className="subtitle-file"><Film/><span>{item.name}</span></Button>)}</nav>
+        {state.workspace && <><h3>当前视频</h3><nav aria-label="批量视频">{state.workspace.videos.map(item => <Button key={item.index} variant={state.index === item.index ? "secondary" : "ghost"} onClick={() => void state.select(item.index)} disabled={state.busy} className="subtitle-file"><Film/><span>{item.name}</span></Button>)}</nav>
           <Button variant="outline" onClick={() => void state.clear()} disabled={state.busy}><Trash2/> 清空文件与历史</Button></>}
         <small>每次 1–3 个视频；单个最多 256 MB，总量 512 MB。关闭应用会移除临时文件，请先保存成果。</small>
       </aside>
@@ -49,7 +50,7 @@ export function SubtitleWorkspace() {
         </CardContent></Card> : <>
           <Card><CardHeader><CardTitle>视频与字幕预览</CardTitle></CardHeader><CardContent>
             <video ref={video} key={`${state.workspace.id}-${state.index}`} controls preload="metadata" className="subtitle-video" onError={() => setVideoError(true)}>
-              <source src={`/api/workspaces/${state.workspace.id}/videos/${state.index}`}/>
+              <source src={`/api/workspaces/${state.workspace.id}/videos/${state.index}`} onError={() => setVideoError(true)}/>
               <track key={state.revision} src={`${state.captionBase}/vtt?r=${state.revision}`} kind="subtitles" srcLang={language === "auto" ? "zh" : language} label="校对字幕" default/>
             </video><small>预览使用已保存的字幕。播放器字幕按钮可开关显示。</small>
             {videoError && <p role="status">浏览器不支持这份源视频的编码或容器；仍可转录与导出，在本机播放器核对成果。</p>}

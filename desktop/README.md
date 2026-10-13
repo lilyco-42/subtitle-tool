@@ -13,6 +13,8 @@ Unix 独立进程组、Windows nested Job Object 只管理当前任务树。
 ## 验收边界
 
 `Subtitle workbench` 在 Actions 构建实际 UI 并调用原 CLI，验证已有字幕的完整浏览器流程及 HTTP 隔离。
+H264/AAC 的播放路径使用真实 Google Chrome 验收；当前无品牌 Chromium 明确不支持该编解码组合。
+不支持的源格式仍显示提示，字幕生成与导出不依赖浏览器解码能力；不能据此声称所有浏览器都能播放所有视频。
 没有本机构建或测试。CI 源码引擎入口仅在 `GITHUB_ACTIONS=true` 且 `LAIN42_SUBTITLE_SOURCE_ENGINE=true` 时启用；
 产品必须提供已冻结的 `bin/subtitle-engine/`。模型缺失时不伪造转录能力。
 
