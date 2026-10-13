@@ -42,9 +42,12 @@ def model():
 
 async def call(arguments, folder, log):
     kwargs = {'creationflags': 0x08000000} if os.name == 'nt' else {'start_new_session': True}
+    # The worker is a separate frozen executable, not another invocation of this shell.
+    environment = dict(os.environ)
+    environment['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
     spawn = asyncio.create_task(asyncio.create_subprocess_exec(*executable(), '--wait-for-controller', *arguments,
         stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
-        cwd=folder, **kwargs))
+        cwd=folder, env=environment, **kwargs))
     process = None
     owned = None
     reader = None

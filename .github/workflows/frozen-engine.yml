@@ -1,0 +1,76 @@
+name: Subtitle frozen engine
+on:
+  pull_request:
+    paths: ['desktop/**', 'subtitle_tool.py', '.github/workflows/frozen-engine.yml']
+  push:
+    branches: [master]
+    paths: ['desktop/**', 'subtitle_tool.py', '.github/workflows/frozen-engine.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: subtitle-frozen-engine-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  actual-frozen-engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 55
+    env:
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build actual locked UI only in Actions
+        working-directory: desktop/ui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Original CPU engine, independent shell and pinned freezer
+        run: python -m pip install -r desktop/requirements.txt -r desktop/engine-requirements.txt pyinstaller==6.16.0 httpx==0.28.1 psutil==7.1.0
+      - name: Linux CI host media and own speech fixture tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core espeak
+      - name: Windows CI host media only, do not bundle or release it
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile "$env:RUNNER_TEMP/ffmpeg-ci.zip"
+          Expand-Archive -LiteralPath "$env:RUNNER_TEMP/ffmpeg-ci.zip" -DestinationPath "$env:RUNNER_TEMP/ffmpeg-ci"
+          $binary = Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/ffmpeg-ci" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          if (-not $binary) { throw 'CI-only media verification executable missing' }
+          $binary.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - name: Download exact Tiny model before offline runtime verification
+        working-directory: desktop
+        env:
+          HF_HUB_OFFLINE: '0'
+        run: python packaging/model.py
+      - name: Freeze original CLI separately, then FastAPI shell with complete worker tree
+        working-directory: desktop
+        run: python packaging/build-app.py
+      - name: Actual frozen worker observed, real ASR, hard pixels, edited soft track and private clear
+        working-directory: desktop
+        run: python tests/bundle_smoke.py dist/Lain42-Subtitle-Studio/Lain42-Subtitle-Studio${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Keep real frozen-engine evidence, not an unreviewed distributable
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subtitle-frozen-engine-evidence-${{ runner.os }}-${{ github.sha }}
+          path: |
+            desktop/evidence/
+            desktop/build-engine/subtitle-engine/warn-subtitle-engine.txt
+            desktop/build/Lain42-Subtitle-Studio/warn-Lain42-Subtitle-Studio.txt
+          if-no-files-found: warn
+      # No binary publishing yet: complete media/native attribution, native window,
+      # running cancellation, installed processing and safe uninstall are still required.

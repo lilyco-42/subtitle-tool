@@ -20,6 +20,12 @@ H264/AAC 的播放路径使用真实 Google Chrome 验收；当前无品牌 Chro
 没有本机构建或测试。CI 源码引擎入口仅在 `GITHUB_ACTIONS=true` 且 `LAIN42_SUBTITLE_SOURCE_ENGINE=true` 时启用；
 产品必须提供已冻结的 `bin/subtitle-engine/`。模型缺失时不伪造转录能力。
 
+`Subtitle frozen engine` 另在 Windows / Linux 冻结原 `subtitle_tool.py` 为独立 `subtitle-engine`，
+再冻结 FastAPI 工作台，携带完整引擎目录和本地 Tiny 模型，禁用源码回退及模型在线下载。
+验收直接观察原二进制子进程，读取真实软字幕轨、比较烧录画面、识别自制英语语音、校验 ZIP 并清空私有文件。
+这一阶段使用 CI 主机 FFmpeg，不发布这些未完成分发审查的程序或安装器；
+冻结后的成功也不代替完整 FFmpeg 对应源码/许可、原生窗口、运行中取消和安装卸载门。
+
 **当前不能作为完整桌面产品发行或收费交付。** 剩余门：固定本地模型及文件/许可、真实语音识别、
 FFmpeg 及原生依赖对应源码/许可、冻结后的原引擎、Windows 原生窗口/取消/正常退出及 EXE 安装/卸载。
 所有门通过才在原仓库 Release 和 Lain42 提供可交付包；不能把这个源码工作台或绿色前端构建当作产品完成。
