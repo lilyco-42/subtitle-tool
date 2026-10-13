@@ -31,6 +31,12 @@ def main():
     print(url, flush=True)
     ci = os.environ.get('GITHUB_ACTIONS') == 'true'
     native_smoke = ci and os.environ.get('LAIN42_DESKTOP_SMOKE') == 'true'
+    if ci and os.environ.get('LAIN42_SUBTITLE_RECEIPT'):
+        from studio import engine
+        Path(os.environ['LAIN42_SUBTITLE_RECEIPT']).write_text(json.dumps({
+            'url': url, 'workspace_root': str(app.state.workspaces.root),
+            'frozen': bool(getattr(sys, 'frozen', False)), 'engine': engine.executable()[0],
+        }), encoding='utf-8')
     native = sys.platform == 'win32' and '--browser' not in sys.argv and (not ci or native_smoke)
     if not native:
         def open_when_ready():
@@ -101,5 +107,7 @@ def main():
 
 
 if __name__ == '__main__':
+    import multiprocessing
+    multiprocessing.freeze_support()
     main()
 

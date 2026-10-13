@@ -14,3 +14,5 @@ desktop/models/
 desktop/bin/
 desktop/ui/node_modules/
 desktop/node_modules/
+desktop/engine-dist/
+desktop/build-engine/

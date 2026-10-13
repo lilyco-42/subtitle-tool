@@ -24,6 +24,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+if __name__ == '__main__':
+    import multiprocessing
+    multiprocessing.freeze_support()
+
 # ─────────────────────────────────────────────
 #  颜色输出（Windows 兼容）
 # ─────────────────────────────────────────────
