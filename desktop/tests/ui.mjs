@@ -15,14 +15,31 @@ try {
     const context = await browser.newContext({ viewport: { width, height: 960 }, acceptDownloads: true });
     const page = await context.newPage();
     const errors = [];
+    const mediaResponses = [];
     page.on('pageerror', error => errors.push(error.message));
+    page.on('response', response => {
+      if (/\/videos\/\d/.test(response.url())) mediaResponses.push({status: response.status(), headers: response.headers()});
+    });
     await page.goto('http://127.0.0.1:8057/');
     await page.getByLabel('选择视频', { exact: true }).setInputFiles([path.join(root, 'original.mp4'), path.join(root, 'second.mp4')]);
     await page.getByLabel('选择已有 SRT', { exact: true }).setInputFiles(path.join(root, 'original.srt'));
     await page.getByRole('button', { name: '打开工作区', exact: true }).click();
     const editor = page.getByLabel('SRT 时间轴与字幕正文', { exact: true });
     await editor.waitFor();
-    await page.waitForFunction(() => document.querySelector('video')?.readyState > 0);
+    try {
+      await page.waitForFunction(() => document.querySelector('video')?.readyState > 0);
+    } catch (error) {
+      const media = await page.evaluate(() => {
+        const video = document.querySelector('video');
+        return { readyState: video?.readyState, networkState: video?.networkState,
+          error: video?.error ? { code: video.error.code, message: video.error.message } : null,
+          mp4: video?.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"'),
+          currentSrc: video?.currentSrc };
+      });
+      fs.writeFileSync(path.join(root, `media-failure-${width}.json`), JSON.stringify({media, mediaResponses, errors}, null, 2));
+      await page.screenshot({ path: path.join(root, `media-failure-${width}.png`), fullPage: true });
+      throw error;
+    }
     assert.match(await editor.inputValue(), /NEW CAPTION/);
     await editor.fill((await editor.inputValue()).replace('NEW CAPTION', 'EDITED IN GUI'));
     await page.getByRole('button', { name: '保存修改', exact: true }).click();
