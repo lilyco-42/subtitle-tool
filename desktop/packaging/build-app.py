@@ -17,6 +17,9 @@ if os.environ.get('GITHUB_ACTIONS') != 'true':
 
 root = Path(__file__).resolve().parents[1]
 os.chdir(root)
+sys.path.insert(0, str(root / 'packaging'))
+from desktop_icons import prepare_icon, verify_embedded_icon
+icon_receipt = prepare_icon(root)
 source = root.parent / 'subtitle_tool.py'
 media_target = 'win64' if os.name == 'nt' else 'linux64'
 media = root / 'reviewed-media' / media_target
@@ -56,10 +59,11 @@ if b'--transcribe-only' not in help_result.stdout or b'--local-only' not in help
     raise ValueError('Frozen binary is not the intended original CLI')
 
 app = common + ['--name', 'Lain42-Subtitle-Studio', '--add-data', 'frontend:frontend',
-                '--add-data', 'models:models', '--collect-submodules', 'uvicorn']
+                '--add-data', 'models:models', '--add-data', 'resources:resources', '--collect-submodules', 'uvicorn']
 for module in ('faster_whisper', 'ctranslate2', 'av', 'onnxruntime', 'tokenizers', 'torch', 'tensorflow'):
     app += ['--exclude-module', module]
 if os.name == 'nt':
+    app += ['--icon', 'resources/app.ico']
     for module in ('webview', 'pythonnet', 'clr_loader'):
         app += ['--collect-all', module]
     for module in ('PyQt6', 'PySide6', 'gi'):
@@ -69,6 +73,10 @@ else:
 subprocess.run(app + ['launcher.py'], check=True)
 
 packed = root / 'dist/Lain42-Subtitle-Studio'
+if os.name == 'nt':
+    icon_receipt['executable'] = verify_embedded_icon(packed / 'Lain42-Subtitle-Studio.exe', root / 'resources/app.ico')
+Path('evidence').mkdir(exist_ok=True)
+Path('evidence/icon-build.json').write_text(json.dumps(icon_receipt, indent=2), encoding='utf-8')
 # Preserve the separate worker's entire onedir layout and executable/symlink modes.
 shutil.copytree(target, packed / '_internal/bin/subtitle-engine', symlinks=True)
 corresponding = packed / 'third-party/ffmpeg'
