@@ -62,6 +62,25 @@ jobs:
       - name: Actual frozen worker observed, real ASR, hard pixels, edited soft track and private clear
         working-directory: desktop
         run: python tests/bundle_smoke.py dist/Lain42-Subtitle-Studio/Lain42-Subtitle-Studio${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Independent official SDK license and five original bundled DLLs
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        run: python packaging/verify-sdk.py
+      - name: Native verification tools and signed official WebView2 Runtime bootstrap
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile webview2-bootstrap.exe
+          $signature = Get-AuthenticodeSignature webview2-bootstrap.exe
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft Corporation') { throw 'Invalid Microsoft bootstrap signature' }
+          $setup = Start-Process ./webview2-bootstrap.exe -ArgumentList '/silent','/install' -Wait -PassThru -WindowStyle Hidden
+          if ($setup.ExitCode -notin 0,3010) { throw "WebView2 Runtime install failed: $($setup.ExitCode)" }
+      - name: Actual frozen WebView2 edit and export, normal close removes private workspace and server
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        run: node tests/desktop_smoke.mjs dist/Lain42-Subtitle-Studio/Lain42-Subtitle-Studio.exe
       - name: Keep real frozen-engine evidence, not an unreviewed distributable
         if: always()
         uses: actions/upload-artifact@v4
