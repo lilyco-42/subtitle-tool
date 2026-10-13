@@ -71,6 +71,17 @@ def original_notices(archive):
     return notices
 
 
+def av_library_metadata():
+    # In pinned PyAV 16 this dictionary lives in _core; av.__init__ exports
+    # library_versions but not library_meta. Do not fabricate empty metadata.
+    from av._core import library_meta
+    required = {'libavutil', 'libavcodec', 'libavformat', 'libavdevice',
+                'libavfilter', 'libswscale', 'libswresample'}
+    if not required <= library_meta.keys() or any(
+            not {'version', 'configuration', 'license'} <= record.keys() for record in library_meta.values()):
+        raise ValueError('Actual PyAV native metadata is incomplete')
+    return library_meta
+
 def pyav_sources():
     import av
     if av.__version__ != '16.0.1':
@@ -128,7 +139,7 @@ def pyav_sources():
     if not {'ffmpeg', 'x264', 'x265'} <= {p['name'] for p in packages}:
         raise ValueError('Incomplete community media corresponding sources')
     runtime = {}
-    for name, record in av.library_meta.items():
+    for name, record in av_library_metadata().items():
         def text(value):
             return value.decode('utf-8') if isinstance(value, bytes) else value
         runtime[name] = {key: text(value) for key, value in record.items()}
