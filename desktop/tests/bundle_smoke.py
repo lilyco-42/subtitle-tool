@@ -113,7 +113,9 @@ with tempfile.TemporaryDirectory() as temporary:
             exported = client.get(f'api/jobs/{soft["id"]}/files/export.zip').content
             with zipfile.ZipFile(io.BytesIO(exported)) as archive:
                 assert set(archive.namelist()) == {'video.mp4', 'subtitles.srt'}
-                assert archive.read('subtitles.srt').decode() == edited
+                # Path.write_text uses native newlines; compare every byte's intended text,
+                # including Windows CRLF, rather than treating correct CRLF as changed captions.
+                assert archive.read('subtitles.srt').decode() == edited.replace('\n', os.linesep)
                 output = root / 'soft.mp4'
                 output.write_bytes(archive.read('video.mp4'))
             text = subprocess.run(['ffmpeg', '-nostdin', '-i', str(output), '-map', '0:s:0', '-f', 'srt', '-'],
