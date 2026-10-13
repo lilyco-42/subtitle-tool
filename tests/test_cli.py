@@ -106,7 +106,11 @@ class RealMediaTests(unittest.TestCase):
     def test_hard_subtitle_special_path_changes_actual_frame(self):
         result = self.root / "hard output.mp4"
         font = "Arial" if os.name == "nt" else "DejaVu Sans"
-        tool.embed_subtitle(self.video, self.srt, "hard", font, 22, result)
+        with patch.object(tool.subprocess, 'run', wraps=subprocess.run) as actual:
+            tool.embed_subtitle(self.video, self.srt, "hard", font, 22, result)
+        scratch = Path(actual.call_args.kwargs['cwd']).resolve()
+        self.assertEqual(self.root, scratch.parent)
+        self.assertFalse(scratch.exists(), 'Normal export left subtitle scratch files')
         frames = []
         for path in (self.video, result):
             frames.append(subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-ss", "0.5",

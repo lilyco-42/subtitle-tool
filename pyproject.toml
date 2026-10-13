@@ -1,10 +1,10 @@
 [project]
 name = "subtitle-tool"
-version = "1.0.1"
+version = "1.1.0"
 description = "跨平台视频字幕工具 — faster-whisper 转录 + FFmpeg 嵌入"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["faster-whisper"]
+dependencies = ["faster-whisper==1.2.1", "av==16.0.1"]
 
 [project.scripts]
 subtitle-tool = "subtitle_tool:main"

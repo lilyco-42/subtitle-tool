@@ -1,0 +1,5 @@
+# Original ASR engine, not a replacement implementation. Full frozen dependency
+# manifest and native-license audit are additionally required before publishing.
+faster-whisper==1.2.1
+# 1.2.1 passes metadata_errors to av.open; newer PyAV removed that keyword.
+av==16.0.1
