@@ -58,16 +58,17 @@ def title(msg): print(f"\n{BOLD}{msg}{RESET}\n{'─'*50}", flush=True)
 def check_deps(require_asr=True):
     missing = []
 
-    if not shutil.which("ffmpeg"):
-        # onefile 解包目录与 EXE 所在目录不同；两种布局都支持。
-        exe_dir = Path(sys.executable if getattr(sys, 'frozen', False) else __file__).resolve().parent
-        roots = [Path(getattr(sys, '_MEIPASS', exe_dir)), exe_dir]
-        executable = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
-        bundled_dir = next((root for root in roots if (root / executable).is_file()), None)
-        if bundled_dir is None:
-            missing.append("ffmpeg  →  https://ffmpeg.org/download.html")
-        else:
-            os.environ["PATH"] = str(bundled_dir) + os.pathsep + os.environ.get("PATH", "")
+    # A frozen desktop product uses its reviewed media even when a different
+    # FFmpeg happens to be installed on the user's machine.
+    exe_dir = Path(sys.executable if getattr(sys, 'frozen', False) else __file__).resolve().parent
+    roots = [Path(getattr(sys, '_MEIPASS', exe_dir)), exe_dir]
+    executable = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    candidates = [root / 'media/ffmpeg/bin' for root in roots] + roots
+    bundled_dir = next((root for root in candidates if (root / executable).is_file()), None)
+    if bundled_dir is not None:
+        os.environ["PATH"] = str(bundled_dir) + os.pathsep + os.environ.get("PATH", "")
+    elif not shutil.which("ffmpeg"):
+        missing.append("ffmpeg  →  https://ffmpeg.org/download.html")
 
     if require_asr:
         try:
