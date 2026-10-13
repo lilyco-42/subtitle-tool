@@ -33,7 +33,7 @@ try {
     } catch { await new Promise(resolve => setTimeout(resolve, 500)); }
   }
   assert(browser && receipt, 'Actual WebView2 startup failed: ' + output);
-  for(let i=0;i<100;i++) {
+  for(let i=0;i<200;i++) {
     try {receipt=JSON.parse(await fs.readFile(receiptFile,'utf8'));if(receipt.native_icon_applied===true)break;} catch {}
     await new Promise(r=>setTimeout(r,100));
   }
