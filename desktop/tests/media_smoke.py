@@ -21,7 +21,8 @@ with tempfile.TemporaryDirectory() as temporary:
         archive.extractall(root, filter='data')
     package = root / target
     manifest = json.loads((package / 'manifest.json').read_text(encoding='utf-8'))
-    assert manifest['commit'] == os.environ['GITHUB_SHA'] and manifest['target'] == target
+    source_commit = os.environ.get('SOURCE_MEDIA_COMMIT', os.environ['GITHUB_SHA'])
+    assert manifest['commit'] == source_commit and manifest['target'] == target
     assert manifest['ffmpeg_commit'] == expected_ffmpeg and manifest['builder_commit'] == expected_builder
     assert manifest['requires_full_source_distribution'] is True
     files = {p.relative_to(package).as_posix() for p in package.rglob('*') if p.is_file()}
@@ -51,7 +52,7 @@ with tempfile.TemporaryDirectory() as temporary:
                               cwd=root, timeout=120)
 
     version = run([str(ffmpeg), '-version']).stdout.decode('utf-8', errors='replace')
-    assert version.startswith('ffmpeg version 8.0.1'), version
+    assert version.startswith('ffmpeg version n8.0.1-'), version
     for flag in ('--enable-gpl', '--enable-version3', '--enable-libass', '--enable-libx264',
                  '--enable-libdav1d', '--disable-autodetect', '--disable-network'):
         assert flag in version, flag
@@ -79,7 +80,7 @@ with tempfile.TemporaryDirectory() as temporary:
     evidence = repository / 'desktop/evidence'
     evidence.mkdir(exist_ok=True)
     (evidence / ('media-' + target + '.json')).write_text(json.dumps({
-        'commit': os.environ['GITHUB_SHA'], 'target': target,
+        'commit': os.environ['GITHUB_SHA'], 'media_artifact_commit': source_commit, 'target': target,
         'ffmpeg_commit': expected_ffmpeg, 'builder_commit': expected_builder,
         'full_package_manifest_verified': True, 'exact_gpl_license_matches_source': True,
         'corresponding_dependency_sources_with_notices': source_licenses,

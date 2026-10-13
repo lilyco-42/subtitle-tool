@@ -1,18 +1,40 @@
 name: Subtitle reviewed media
 on:
   pull_request:
-    paths: ['desktop/packaging/media-build.py', 'desktop/tests/media_smoke.py', '.github/workflows/reviewed-media.yml']
+    paths: ['desktop/packaging/media-build.py', 'desktop/packaging/media-plan.py', 'desktop/tests/media_smoke.py', '.github/workflows/reviewed-media.yml']
   push:
     branches: [master]
-    paths: ['desktop/packaging/media-build.py', 'desktop/tests/media_smoke.py', '.github/workflows/reviewed-media.yml']
+    paths: ['desktop/packaging/media-build.py', 'desktop/packaging/media-plan.py', 'desktop/tests/media_smoke.py', '.github/workflows/reviewed-media.yml']
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: subtitle-reviewed-media-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      reuse: ${{ steps.plan.outputs.reuse }}
+      source_run: ${{ steps.plan.outputs.source_run }}
+      artifact_commit: ${{ steps.plan.outputs.artifact_commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compare actual existing producer source and successful compilation jobs
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python desktop/packaging/media-plan.py
   compile-media:
+    needs: plan
+    if: needs.plan.outputs.reuse != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -42,7 +64,8 @@ jobs:
             desktop/media-build/${{ matrix.target }}/builder/ffbuild/ffmpeg/ffbuild/config.log
           if-no-files-found: warn
   verify-media:
-    needs: compile-media
+    needs: [plan, compile-media]
+    if: always() && needs.plan.result == 'success' && (needs.compile-media.result == 'success' || needs.compile-media.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -60,10 +83,14 @@ jobs:
           python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
-          name: subtitle-media-${{ matrix.target }}-${{ github.sha }}
+          name: subtitle-media-${{ matrix.target }}-${{ needs.plan.outputs.artifact_commit }}
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.plan.outputs.source_run }}
           path: media-input
       - name: Inspect actual sources and executable, real encoded and burned captions
         run: python desktop/tests/media_smoke.py media-input/${{ matrix.target }}.tar.gz
+        env:
+          SOURCE_MEDIA_COMMIT: ${{ needs.plan.outputs.artifact_commit }}
       - name: Preserve independent media evidence
         uses: actions/upload-artifact@v4
         with:
