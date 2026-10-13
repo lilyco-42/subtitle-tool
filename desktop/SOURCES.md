@@ -14,6 +14,11 @@ The compiled wheel's actual FFmpeg version/configuration/license and frozen
 native-file hashes are recorded. Unresolved runtime attribution is a release
 blocker, not evidence of a compatible license.
 
+The fixed PyAV media helper has no declared source license. Its code is not
+redistributed in the application; the audit preserves its factual source URL
+and digest and requires an independently licensed rebuild recipe. Preserving
+metadata does not clear that remaining release requirement.
+
 The per-user NSIS installer generator is adapted from `lilyco-42/lilyco`, commit
 `a308ad03671a2b8d415b85ff2d7e2e7bfc42796b`, `apps/vision-studio/packaging/windows-installer.py`.
 Its MIT notice remains in `SHARED-SOURCE-LICENSE`. The subtitle-specific installed
