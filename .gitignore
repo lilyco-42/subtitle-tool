@@ -16,3 +16,5 @@ desktop/ui/node_modules/
 desktop/node_modules/
 desktop/engine-dist/
 desktop/build-engine/
+desktop/media-build/
+desktop/media-output/

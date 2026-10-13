@@ -15,4 +15,15 @@ of pywebview's license. This SDK is distinct from the installed Microsoft WebVie
 
 ## Not yet a distributable release
 
+The `Subtitle reviewed media` pipeline compiles FFmpeg `n8.0.1`, exact commit
+`894da5ca7d742e4429ffb2af534fcda0103ef593`, using the existing BtbN recipes at
+`63ac3265b0789ea16c7b1f8351cd2ad195a28722`. Only subtitle-related external libraries
+are selected; FFmpeg's built-in format/decoder/filter support stays enabled.
+GPL/version3 are enabled, nonfree is not selected, and network input is disabled.
+The source archives actually consumed by the library build, exact FFmpeg source,
+configuration, builder source and local patch accompany the resulting binary.
+Future delivery must retain both binary and complete corresponding sources.
+This media component does not prove the frozen application's complete distribution
+or its installed/uninstalled behavior; these remain separate release gates.
+
 Current code is a workbench implementation. A release additionally requires a pinned local Whisper model and its license/file manifest, a reviewed FFmpeg build with full notices and corresponding source, original CLI binary freezing, WebView2 SDK notices, real ASR and video/UI tests, native-window cleanup and installed/uninstalled tests. CI-only FFmpeg used by regressions is not a distributable bundle. No claimed price, sales or complete product acceptance follows from source or UI build alone.
