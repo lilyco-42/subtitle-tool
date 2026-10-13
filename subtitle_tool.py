@@ -90,45 +90,55 @@ def check_deps(require_asr=True):
 #    medium ~ 769 MB   精准
 #    large  ~1550 MB   最准
 # ─────────────────────────────────────────────
-def generate_srt(video_path: Path, model: str, language: str) -> Path:
+def generate_srt(video_path: Path, model: str, language: str,
+                 output_path: Path | None = None, device: str = "auto",
+                 local_only: bool = False) -> Path:
     title(f"🎙 转录：{video_path.name}")
 
     from faster_whisper import WhisperModel
 
     # 自动选择设备
-    try:
-        import torch
-        device  = "cuda" if torch.cuda.is_available() else "cpu"
-        compute = "float16" if device == "cuda" else "int8"
-    except ImportError:
-        device, compute = "cpu", "int8"
+    if device == "auto":
+        try:
+            import torch
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        except ImportError:
+            device = "cpu"
+    compute = "float16" if device == "cuda" else "int8"
 
     info(f"加载模型：{model}  设备：{device}  精度：{compute}")
-    info("首次使用会自动下载（模型体积约为 openai-whisper 的 1/4）...")
+    info("使用本地模型，不发起模型下载" if local_only else "模型不存在时会下载，请保持网络连接")
 
-    m = WhisperModel(model, device=device, compute_type=compute)
+    m = WhisperModel(model, device=device, compute_type=compute, local_files_only=local_only)
 
     info(f"开始转录，语言：{language} ...")
-    segments, meta = m.transcribe(
-        str(video_path),
-        language=language,
-        beam_size=5,
-        vad_filter=True,
-        vad_parameters={"min_silence_duration_ms": 500},
-    )
-
-    # 边转录边写入，实时显示进度
-    srt_path = video_path.with_suffix(".srt")
-    duration  = meta.duration or 1
+    srt_path = output_path or video_path.with_suffix(".srt")
+    if srt_path.resolve() == video_path.resolve():
+        raise ValueError("字幕输出不能覆盖输入视频")
     seg_list  = []
-
-    print(f"  {'─'*48}")
-    for seg in segments:
-        seg_list.append(seg)
-        pct = min(seg.end / duration * 100, 100)
-        bar = "█" * int(pct / 4) + "░" * (25 - int(pct / 4))
-        print(f"\r  [{bar}] {pct:5.1f}%  {seg.end:.0f}s / {duration:.0f}s",
-              end="", flush=True)
+    with tempfile.TemporaryDirectory(prefix="subtitle-audio-") as directory:
+        media = video_path
+        if local_only:
+            # PyAV 的自动格式识别也可能识别播放列表。先由受协议白名单
+            # 限制的 FFmpeg 生成已知 PCM，识别器只读取这份本地音频。
+            media = Path(directory) / "audio.wav"
+            ret = subprocess.run(["ffmpeg", "-nostdin", "-y", "-protocol_whitelist", "file,pipe",
+                                  "-i", str(video_path), "-vn", "-ac", "1", "-ar", "16000",
+                                  "-c:a", "pcm_s16le", str(media)], capture_output=True)
+            if ret.returncode:
+                raise RuntimeError("无法安全读取本地音频：" + ret.stderr.decode("utf-8", errors="replace")[-2000:])
+        segments, meta = m.transcribe(
+            str(media), language=None if language == "auto" else language, beam_size=5,
+            vad_filter=True, vad_parameters={"min_silence_duration_ms": 500},
+        )
+        duration = meta.duration or 1
+        print(f"  {'─'*48}")
+        for seg in segments:
+            seg_list.append(seg)
+            pct = min(seg.end / duration * 100, 100)
+            bar = "█" * int(pct / 4) + "░" * (25 - int(pct / 4))
+            print(f"\r  [{bar}] {pct:5.1f}%  {seg.end:.0f}s / {duration:.0f}s",
+                  end="", flush=True)
     print()
 
     _write_srt(seg_list, srt_path)
@@ -161,6 +171,7 @@ def embed_subtitle(
     font_name: str,
     font_size: int,
     output_path: Path | None = None,
+    local_only: bool = False,
 ) -> Path:
     title(f"🎬 嵌入字幕：{video_path.name}")
 
@@ -211,6 +222,11 @@ def embed_subtitle(
             str(out),
         ]
 
+    if local_only:
+        # 设置在每个输入前，拒绝伪装为本地视频的远程播放列表。
+        for index in reversed([i for i, item in enumerate(cmd) if item == "-i"]):
+            cmd[index:index] = ["-protocol_whitelist", "file,pipe"]
+
     info(f"模式：{'软字幕（可开关）' if mode == 'soft' else '硬字幕（烧录）'}")
     info(f"输出：{out}")
 
@@ -244,7 +260,11 @@ def process_one(video_path: Path, args):
             raise FileNotFoundError(f"字幕文件不存在：{srt_path}")
         info(f"使用已有字幕：{srt_path.name}")
     else:
-        srt_path = generate_srt(video_path, args.model, args.language)
+        srt_path = generate_srt(video_path, args.model, args.language,
+                               output_path=Path(args.output) if args.transcribe_only and args.output else None,
+                               device=args.device, local_only=args.local_only)
+    if args.transcribe_only:
+        return srt_path
 
     return embed_subtitle(
         video_path=video_path,
@@ -253,6 +273,7 @@ def process_one(video_path: Path, args):
         font_name=args.font,
         font_size=args.font_size,
         output_path=Path(args.output) if args.output else None,
+        local_only=args.local_only,
     )
 
 
@@ -317,6 +338,9 @@ def interactive_mode():
         batch    = False
         font     = "Microsoft YaHei" if platform.system() == "Windows" else "PingFang SC"
         font_size = 22
+        transcribe_only = False
+        device = "auto"
+        local_only = False
 
     a       = A()
     a.model = model
@@ -344,12 +368,20 @@ def build_parser():
     p.add_argument("--output",   help="输出路径（单文件时有效）")
     p.add_argument("--batch",    action="store_true",
                    help="批量处理当前目录所有 mp4/mkv")
+    p.add_argument("--transcribe-only", action="store_true", help="只生成 SRT，预览修改后再嵌入")
+    p.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="选择转录设备")
+    p.add_argument("--local-only", action="store_true", help="仅本地模型与文件，不读取远程媒体")
+    p.add_argument("--wait-for-controller", action="store_true", help=argparse.SUPPRESS)
     return p
 
 
 def main(argv=None):
     parser = build_parser()
     args   = parser.parse_args(argv)
+    if args.wait_for_controller and sys.stdin.readline().strip() != "ready":
+        parser.error("桌面任务控制器未就绪")
+    if args.transcribe_only and args.srt:
+        parser.error("已有字幕请直接嵌入，不要同时指定 --transcribe-only")
     if args.font_size < 1:
         parser.error("--font-size 必须是正整数")
 

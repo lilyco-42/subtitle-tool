@@ -1,0 +1,91 @@
+name: Subtitle workbench
+on:
+  pull_request:
+    paths: ['desktop/**', 'subtitle_tool.py', '.github/workflows/workbench.yml']
+  push:
+    branches: [master]
+    paths: ['desktop/**', 'subtitle_tool.py', '.github/workflows/workbench.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: subtitle-workbench-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actual-workbench:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    env:
+      LAIN42_SUBTITLE_SOURCE_ENGINE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual locked shadcn UI, no local build
+        working-directory: desktop/ui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Exact original registry components
+        working-directory: desktop/ui
+        run: >-
+          python -c "import hashlib,json; from pathlib import Path;
+          sources=json.loads(Path('src/shadcn-sources.json').read_text());
+          assert all(hashlib.sha256(Path('src/components/ui',s['file']).read_bytes()).hexdigest()==s['sha256'] for s in sources)"
+      - name: Original ASR engine and transport dependencies
+        run: python -m pip install -r desktop/requirements.txt -r desktop/engine-requirements.txt httpx==0.28.1
+      - name: Linux media verification and synthetic fixture tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core espeak
+      - name: Windows media verification tools only, not a distributable bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile "$env:RUNNER_TEMP/ffmpeg-ci.zip"
+          Expand-Archive -LiteralPath "$env:RUNNER_TEMP/ffmpeg-ci.zip" -DestinationPath "$env:RUNNER_TEMP/ffmpeg-ci"
+          $binary = Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/ffmpeg-ci" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          if (-not $binary) { throw 'FFmpeg verification binary missing' }
+          $binary.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - name: Exact local Tiny model, full original license and file receipt
+        working-directory: desktop
+        run: python packaging/model.py
+      - name: Real original CLI, actual CPU ASR and local HTTP boundaries
+        working-directory: desktop
+        shell: bash
+        run: |
+          python -m unittest discover -s tests -v 2>&1 | tee evidence/api-tests.txt
+          ffmpeg -version > evidence/ffmpeg-version.txt
+          python -m pip freeze > evidence/python-dependencies.txt
+      - name: Browser verification prerequisites
+        if: runner.os == 'Linux'
+        working-directory: desktop
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Desktop and phone UI, edited captions into actual media, clearable history
+        if: runner.os == 'Linux'
+        working-directory: desktop
+        shell: bash
+        run: |
+          python -m uvicorn studio.app:create_app --factory --host 127.0.0.1 --port 8057 > evidence/server.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" || true' EXIT
+          for i in $(seq 1 80); do curl -fsS http://127.0.0.1:8057/ >/dev/null && break || sleep .25; done
+          node tests/ui.mjs
+      - name: Source workbench evidence, not an installable product release
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subtitle-workbench-evidence-${{ runner.os }}-${{ github.sha }}
+          path: desktop/evidence/
+          if-no-files-found: warn

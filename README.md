@@ -80,6 +80,9 @@ MIT
 
 ## 桌面封装准备与回归
 
+字幕工作台源码位于 [`desktop/`](desktop/README.md)，包含视频预览、SRT 校对与逐个／批量导出。
+目前是待验收实现，尚未发布完整桌面安装包；模型、媒体依赖、冻结与安装门必须全部通过才交付。
+
 现有 CLI 的批量与嵌入行为由 `Subtitle CLI regression` 在 GitHub Actions 的 Windows / Linux 验证。
 `--help` 不加载模型；使用 `--srt` 时不需要安装或下载语音识别模型。`--batch` 不再进入交互提示，
 排除已经生成的 `_subtitled` 视频；任意文件失败会以非零状态退出，不显示“全部完成”。

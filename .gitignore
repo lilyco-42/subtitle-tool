@@ -8,3 +8,9 @@ build/
 *.spec
 .env
 *_subtitled.*
+desktop/frontend/
+desktop/evidence/
+desktop/models/
+desktop/bin/
+desktop/ui/node_modules/
+desktop/node_modules/

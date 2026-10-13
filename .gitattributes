@@ -1,0 +1,4 @@
+# Preserve exact registry source bytes and full notices on Windows too.
+desktop/ui/src/components/ui/*.tsx -text
+desktop/ui/src/components/ui/LICENSE.md -text
+desktop/SHARED-SOURCE-LICENSE -text
