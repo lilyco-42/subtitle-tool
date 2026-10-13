@@ -1,0 +1,52 @@
+name: Subtitle CLI regression
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: subtitle-cli-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actual-media:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Linux verification tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - name: Windows verification tools only, not a distributable bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile "$env:RUNNER_TEMP/ffmpeg-ci.zip"
+          Expand-Archive -LiteralPath "$env:RUNNER_TEMP/ffmpeg-ci.zip" -DestinationPath "$env:RUNNER_TEMP/ffmpeg-ci"
+          $binary = Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/ffmpeg-ci" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          if (-not $binary) { throw 'FFmpeg verification binary missing' }
+          $binary.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - name: Real exports and batch exit semantics, without ASR installation
+        shell: bash
+        run: |
+          mkdir -p evidence
+          ffmpeg -version > evidence/ffmpeg-version.txt
+          ffprobe -version > evidence/ffprobe-version.txt
+          python -m unittest discover -s tests -v 2>&1 | tee evidence/tests.txt
+      - name: Keep exact source and actual media evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subtitle-cli-evidence-${{ runner.os }}-${{ github.sha }}
+          path: evidence/
+          if-no-files-found: error

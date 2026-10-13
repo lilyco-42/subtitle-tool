@@ -21,6 +21,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # ─────────────────────────────────────────────
@@ -28,6 +29,10 @@ from pathlib import Path
 # ─────────────────────────────────────────────
 if platform.system() == "Windows":
     os.system("color")
+    # 桌面壳与重定向日志使用管道；Windows 默认 cp1252 无法输出中文/emoji。
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure") and not stream.isatty():
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
 
 GREEN  = "\033[92m"
 YELLOW = "\033[93m"
@@ -46,22 +51,25 @@ def title(msg): print(f"\n{BOLD}{msg}{RESET}\n{'─'*50}")
 # ─────────────────────────────────────────────
 #  环境检查
 # ─────────────────────────────────────────────
-def check_deps():
+def check_deps(require_asr=True):
     missing = []
 
     if not shutil.which("ffmpeg"):
-        # PyInstaller 打包时 ffmpeg.exe 在 exe 同目录
+        # onefile 解包目录与 EXE 所在目录不同；两种布局都支持。
         exe_dir = Path(sys.executable if getattr(sys, 'frozen', False) else __file__).resolve().parent
-        bundled = exe_dir / "ffmpeg.exe"
-        if bundled.exists():
-            os.environ["PATH"] = str(exe_dir) + os.pathsep + os.environ.get("PATH", "")
-        else:
+        roots = [Path(getattr(sys, '_MEIPASS', exe_dir)), exe_dir]
+        executable = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+        bundled_dir = next((root for root in roots if (root / executable).is_file()), None)
+        if bundled_dir is None:
             missing.append("ffmpeg  →  https://ffmpeg.org/download.html")
+        else:
+            os.environ["PATH"] = str(bundled_dir) + os.pathsep + os.environ.get("PATH", "")
 
-    try:
-        import faster_whisper  # noqa: F401
-    except ImportError:
-        missing.append("faster-whisper  →  pip install faster-whisper")
+    if require_asr:
+        try:
+            import faster_whisper  # noqa: F401
+        except ImportError:
+            missing.append("faster-whisper  →  pip install faster-whisper")
 
     if missing:
         error("缺少以下依赖，请先安装：")
@@ -69,7 +77,7 @@ def check_deps():
             print(f"  • {m}")
         sys.exit(1)
 
-    ok("ffmpeg 和 faster-whisper 均已就绪")
+    ok("ffmpeg 和 faster-whisper 均已就绪" if require_asr else "ffmpeg 已就绪（使用已有字幕）")
 
 
 # ─────────────────────────────────────────────
@@ -156,32 +164,49 @@ def embed_subtitle(
 ) -> Path:
     title(f"🎬 嵌入字幕：{video_path.name}")
 
+    video_path = video_path.resolve()
+    srt_path = srt_path.resolve()
     suffix = video_path.suffix.lower()
+    if mode == "soft" and suffix not in {".mp4", ".mov", ".mkv"}:
+        suffix = ".mkv"
     out = output_path or video_path.with_name(
         video_path.stem + "_subtitled" + suffix
     )
+    out = out.resolve()
+    if out in {video_path, srt_path}:
+        raise ValueError("输出路径不能覆盖输入视频或字幕")
+    if mode not in {"soft", "hard"}:
+        raise ValueError("字幕模式必须为 soft 或 hard")
+    if not isinstance(font_size, int) or font_size < 1:
+        raise ValueError("字幕字号必须是正整数")
+    if any(char in font_name for char in "'\\,:;[]\r\n"):
+        raise ValueError("字体名称含不支持的控制字符")
 
     if mode == "soft":
-        sub_codec = "srt" if suffix == ".mkv" else "mov_text"
+        output_suffix = out.suffix.lower()
+        if output_suffix not in {".mkv", ".mp4", ".mov"}:
+            raise ValueError("软字幕输出请选择 .mkv、.mp4 或 .mov；其他格式请使用硬字幕")
+        sub_codec = "srt" if output_suffix == ".mkv" else "mov_text"
         cmd = [
-            "ffmpeg", "-y",
+            "ffmpeg", "-nostdin", "-y",
             "-i", str(video_path),
             "-i", str(srt_path),
+            "-map", "0:v:0", "-map", "0:a?", "-map", "1:s:0",
             "-c", "copy",
             "-c:s", sub_codec,
             str(out),
         ]
     else:
-        srt_str = _escape_srt_path(srt_path)
         style = (
             f"FontName={font_name},FontSize={font_size},"
             "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
             "Outline=2,Shadow=1,Alignment=2"
         )
         cmd = [
-            "ffmpeg", "-y",
+            "ffmpeg", "-nostdin", "-y",
             "-i", str(video_path),
-            "-vf", f"subtitles={srt_str}:force_style='{style}'",
+            "-map", "0:v:0", "-map", "0:a?",
+            "-vf", f"subtitles=subtitle.srt:force_style='{style}'",
             "-c:a", "copy",
             str(out),
         ]
@@ -189,25 +214,20 @@ def embed_subtitle(
     info(f"模式：{'软字幕（可开关）' if mode == 'soft' else '硬字幕（烧录）'}")
     info(f"输出：{out}")
 
-    ret = subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
+    # 固定滤镜内的文件名，避免 Windows 盘符、引号、冒号的多层转义。
+    # 输入和输出仍使用绝对路径，临时目录只持有本次字幕副本。
+    with tempfile.TemporaryDirectory(prefix="subtitle-filter-") as directory:
+        if mode == "hard":
+            shutil.copyfile(srt_path, Path(directory) / "subtitle.srt")
+        ret = subprocess.run(cmd, cwd=directory, stderr=subprocess.PIPE,
+                             text=True, encoding="utf-8", errors="replace")
     if ret.returncode != 0:
-        error("FFmpeg 出错：")
-        for line in ret.stderr.strip().splitlines()[-15:]:
-            print(f"  {line}")
-        sys.exit(1)
+        raise RuntimeError("FFmpeg 出错：\n" + "\n".join(ret.stderr.strip().splitlines()[-15:]))
+    if not out.is_file() or out.stat().st_size == 0:
+        raise RuntimeError("FFmpeg 未生成有效输出文件")
 
     ok(f"完成 → {out}")
     return out
-
-
-def _escape_srt_path(path: Path) -> str:
-    s = str(path.resolve())
-    if platform.system() == "Windows":
-        s = s.replace("\\", "/")
-        if len(s) >= 2 and s[1] == ":":
-            s = s[0] + "\\:" + s[2:]
-    s = s.replace("'", "\\'").replace(":", "\\:")
-    return f"'{s}'"
 
 
 # ─────────────────────────────────────────────
@@ -215,20 +235,18 @@ def _escape_srt_path(path: Path) -> str:
 # ─────────────────────────────────────────────
 def process_one(video_path: Path, args):
     video_path = video_path.resolve()
-    if not video_path.exists():
-        error(f"文件不存在：{video_path}")
-        return
+    if not video_path.is_file():
+        raise FileNotFoundError(f"文件不存在：{video_path}")
 
     if args.srt:
         srt_path = Path(args.srt).resolve()
-        if not srt_path.exists():
-            error(f"字幕文件不存在：{srt_path}")
-            return
+        if not srt_path.is_file():
+            raise FileNotFoundError(f"字幕文件不存在：{srt_path}")
         info(f"使用已有字幕：{srt_path.name}")
     else:
         srt_path = generate_srt(video_path, args.model, args.language)
 
-    embed_subtitle(
+    return embed_subtitle(
         video_path=video_path,
         srt_path=srt_path,
         mode=args.mode,
@@ -329,17 +347,19 @@ def build_parser():
     return p
 
 
-def main():
-    check_deps()
+def main(argv=None):
     parser = build_parser()
-    args   = parser.parse_args()
+    args   = parser.parse_args(argv)
+    if args.font_size < 1:
+        parser.error("--font-size 必须是正整数")
 
     if args.font == "Microsoft YaHei" and platform.system() == "Darwin":
         args.font = "PingFang SC"
 
-    if not args.videos:
+    if not args.videos and not args.batch:
+        check_deps()
         interactive_mode()
-        return
+        return 0
 
     video_files = []
     for pattern in args.videos:
@@ -348,17 +368,31 @@ def main():
 
     if args.batch:
         cwd = Path(".")
-        video_files = list(cwd.glob("*.mp4")) + list(cwd.glob("*.mkv"))
+        video_files = sorted(p for p in cwd.iterdir()
+                             if p.is_file() and p.suffix.lower() in {".mp4", ".mkv"}
+                             and not p.stem.endswith("_subtitled"))
         if not video_files:
             warn("当前目录没有找到 mp4/mkv 文件")
-            return
+            return 1
         info(f"批量模式：找到 {len(video_files)} 个文件")
 
+    if args.output and len(video_files) != 1:
+        parser.error("--output 只能用于单个视频，批量处理不能共用输出文件")
+    check_deps(require_asr=not bool(args.srt))
+    failures = 0
     for v in video_files:
-        process_one(Path(v), args)
+        try:
+            process_one(Path(v), args)
+        except (OSError, ValueError, RuntimeError) as exc:
+            error(str(exc))
+            failures += 1
 
+    if failures:
+        error(f"{failures} 个文件处理失败，其余已完成；请检查上述错误")
+        return 1
     title("✅ 全部完成！")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
