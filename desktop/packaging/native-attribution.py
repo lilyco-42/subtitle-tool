@@ -59,8 +59,11 @@ def original_notices(archive):
                 if not item.isfile() or item.size > 512 * 1024 or Path(item.name).suffix != '.h':
                     continue
                 data = source.extractfile(item).read()
-                if (b'Permission is hereby granted' in data and b'THE SOFTWARE IS PROVIDED' in data
-                        and b'Copyright' in data and b'OTHER DEALINGS IN THE SOFTWARE' in data):
+                # Formatting and C comment prefixes can wrap the full notice.
+                # Normalize only for validation; stored text/hash remain raw.
+                normalized = re.sub(rb'[\s*]+', b' ', data)
+                if (b'Permission is hereby granted' in normalized and b'THE SOFTWARE IS PROVIDED' in normalized
+                        and b'Copyright' in normalized and b'OTHER DEALINGS IN THE SOFTWARE' in normalized):
                     notices[item.name] = {'sha256': sha(data), 'text': data.decode('utf-8'),
                                           'original_notice_location': 'Full MIT notice embedded in original header'}
     if not notices:
