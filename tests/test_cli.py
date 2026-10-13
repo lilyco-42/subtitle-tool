@@ -39,7 +39,7 @@ class CliTests(unittest.TestCase):
 
     def test_failure_is_not_reported_as_success_and_batch_continues(self):
         output = io.StringIO()
-        with patch.object(tool, "check_deps"), patch.object(tool, "process_one", 
+        with patch.object(tool, "check_deps"), patch.object(tool, "process_one",
                 side_effect=[FileNotFoundError("missing video"), Path("result.mp4")]) as process, \
                 contextlib.redirect_stdout(output):
             self.assertEqual(1, tool.main(["absent.mp4", "valid.mp4", "--srt", "own.srt"]))
@@ -119,7 +119,7 @@ class RealMediaTests(unittest.TestCase):
 
     def test_missing_file_exits_nonzero_and_input_cannot_be_overwritten(self):
         result = subprocess.run([sys.executable, "subtitle_tool.py", str(self.root / "absent.mp4"),
-                                 "--srt", str(self.srt)], capture_output=True, text=True)
+                                 "--srt", str(self.srt)], capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(1, result.returncode)
         self.assertNotIn("全部完成", result.stdout)
         original = self.video.read_bytes()

@@ -29,6 +29,10 @@ from pathlib import Path
 # ─────────────────────────────────────────────
 if platform.system() == "Windows":
     os.system("color")
+    # 桌面壳与重定向日志使用管道；Windows 默认 cp1252 无法输出中文/emoji。
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure") and not stream.isatty():
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
 
 GREEN  = "\033[92m"
 YELLOW = "\033[93m"
