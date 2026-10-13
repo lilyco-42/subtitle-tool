@@ -28,6 +28,12 @@ env.pop('LAIN42_SUBTITLE_SOURCE_ENGINE', None)
 env['HF_HUB_OFFLINE'] = '1'
 env['TRANSFORMERS_OFFLINE'] = '1'
 env['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
+# Fixtures and independent validators may use CI tools. The real app and its
+# original worker receive no host FFmpeg/Python path, as on a clean client.
+env['PATH'] = str(Path(os.environ['SystemRoot']) / 'System32') if os.name == 'nt' else ''
+packaged_media = expected_engine.parent / '_internal/media/ffmpeg/bin'
+assert (packaged_media / ('ffmpeg.exe' if os.name == 'nt' else 'ffmpeg')).is_file()
+assert (binary.parent / 'third-party/ffmpeg/sources/ffmpeg-source.tar.xz').is_file()
 
 with tempfile.TemporaryDirectory() as temporary:
     root = Path(temporary)
@@ -194,7 +200,9 @@ with tempfile.TemporaryDirectory() as temporary:
                 'cancelled_actual_running_inference': True, 'cancelled_original_pids': sorted(owned_pids),
                 'unrelated_process_preserved': True, 'cancelled_exports_denied': True,
                 'processing_children_exited': True, 'cross_origin_denied': True,
-                'media_source': 'CI host, not bundled', 'distributable': False}), encoding='utf-8')
+                'media_source': 'Reviewed bundled media; host tool PATH removed',
+                'no_host_media_path': True, 'complete_ffmpeg_sources_preserved': True,
+                'distributable': False}), encoding='utf-8')
     finally:
         process.terminate()
         process.wait(timeout=30)
